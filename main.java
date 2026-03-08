@@ -151,3 +151,54 @@ final class AftWeiMath {
         return aa.subtract(bb);
     }
 }
+
+// -----------------------------------------------------------------------------
+// ADDRESS VALIDATION (40 hex after 0x)
+// -----------------------------------------------------------------------------
+
+final class AftAddressValidator {
+    private static final Pattern EIP55_HEX = Pattern.compile("^0x[0-9a-fA-F]{40}$");
+
+    static boolean isValid(String address) {
+        return address != null && EIP55_HEX.matcher(address).matches();
+    }
+
+    static void requireValid(String address) {
+        if (!isValid(address)) throw new KrelvexRouteException(AftErrorCodes.AFT_INVALID_ADDRESS, "Bad address: " + address);
+    }
+}
+
+// -----------------------------------------------------------------------------
+// EVENTS (platform event types)
+// -----------------------------------------------------------------------------
+
+final class SwapExecutedEvent {
+    final String requestId;
+    final long chainId;
+    final String tokenIn;
+    final String tokenOut;
+    final BigInteger amountIn;
+    final BigInteger amountOut;
+    final Instant timestamp;
+
+    SwapExecutedEvent(String requestId, long chainId, String tokenIn, String tokenOut,
+                      BigInteger amountIn, BigInteger amountOut, Instant timestamp) {
+        this.requestId = requestId;
+        this.chainId = chainId;
+        this.tokenIn = tokenIn;
+        this.tokenOut = tokenOut;
+        this.amountIn = amountIn;
+        this.amountOut = amountOut;
+        this.timestamp = timestamp;
+    }
+}
+
+final class BridgeInitiatedEvent {
+    final String bridgeId;
+    final long fromChainId;
+    final long toChainId;
+    final String token;
+    final BigInteger amount;
+    final String recipient;
+    final Instant timestamp;
+

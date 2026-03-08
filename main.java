@@ -1069,3 +1069,54 @@ final class AF_99BatchQuoteItem {
         this.id = id;
         this.chainId = chainId;
         this.tokenIn = tokenIn;
+        this.tokenOut = tokenOut;
+        this.amountIn = amountIn;
+    }
+}
+
+final class AF_99BatchQuoteResult {
+    final String id;
+    final AftQuoteResult quote;
+    final String error;
+
+    AF_99BatchQuoteResult(String id, AftQuoteResult quote, String error) {
+        this.id = id;
+        this.quote = quote;
+        this.error = error;
+    }
+}
+
+final class AF_99BatchProcessor {
+    private final AftermathXSCore core;
+    private final ExecutorService executor;
+    private static final int MAX_CONCURRENCY = 8;
+
+    AF_99BatchProcessor(AftermathXSCore core) {
+        this.core = core;
+        this.executor = Executors.newFixedThreadPool(MAX_CONCURRENCY);
+    }
+
+    List<AF_99BatchQuoteResult> quoteBatch(List<AF_99BatchQuoteItem> items) {
+        if (items == null || items.isEmpty()) return List.of();
+        List<CompletableFuture<AF_99BatchQuoteResult>> futures = items.stream()
+            .map(item -> CompletableFuture.supplyAsync(() -> {
+                try {
+                    AftQuoteResult q = core.quoteSwap(item.chainId, item.tokenIn, item.tokenOut, item.amountIn, BigInteger.ZERO, 0);
+                    return new AF_99BatchQuoteResult(item.id, q, null);
+                } catch (Exception e) {
+                    return new AF_99BatchQuoteResult(item.id, null, e.getMessage());
+                }
+            }, executor))
+            .collect(Collectors.toList());
+        return futures.stream().map(CompletableFuture::join).collect(Collectors.toList());
+    }
+
+    void shutdown() {
+        executor.shutdown();
+        try { executor.awaitTermination(5, TimeUnit.SECONDS); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// METRICS COLLECTOR
+// -----------------------------------------------------------------------------

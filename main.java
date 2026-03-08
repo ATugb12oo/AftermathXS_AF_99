@@ -202,3 +202,54 @@ final class BridgeInitiatedEvent {
     final String recipient;
     final Instant timestamp;
 
+    BridgeInitiatedEvent(String bridgeId, long fromChainId, long toChainId, String token,
+                         BigInteger amount, String recipient, Instant timestamp) {
+        this.bridgeId = bridgeId;
+        this.fromChainId = fromChainId;
+        this.toChainId = toChainId;
+        this.token = token;
+        this.amount = amount;
+        this.recipient = recipient;
+        this.timestamp = timestamp;
+    }
+}
+
+final class RouteQuotedEvent {
+    final String quoteId;
+    final long chainId;
+    final List<String> path;
+    final BigInteger estimatedOut;
+    final long validUntilMs;
+}
+
+// -----------------------------------------------------------------------------
+// TOKEN METADATA
+// -----------------------------------------------------------------------------
+
+final class AftTokenInfo {
+    final String address;
+    final String symbol;
+    final int decimals;
+    final long chainId;
+
+    AftTokenInfo(String address, String symbol, int decimals, long chainId) {
+        this.address = address;
+        this.symbol = symbol;
+        this.decimals = decimals;
+        this.chainId = chainId;
+    }
+}
+
+// -----------------------------------------------------------------------------
+// LIQUIDITY POOL (abstract representation)
+// -----------------------------------------------------------------------------
+
+final class AftPoolInfo {
+    final String poolId;
+    final String tokenA;
+    final String tokenB;
+    final BigInteger reserveA;
+    final BigInteger reserveB;
+    final long chainId;
+    final String dexLabel;
+

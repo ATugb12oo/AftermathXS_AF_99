@@ -967,3 +967,54 @@ final class AF_99Server {
         if (q < 0) return m;
         String qs = path.substring(q + 1);
         for (String pair : qs.split("&")) {
+            int eq = pair.indexOf('=');
+            if (eq > 0) {
+                String k = pair.substring(0, eq);
+                String v = pair.substring(eq + 1);
+                try {
+                    m.put(k, java.net.URLDecoder.decode(v, "UTF-8"));
+                } catch (Exception ignored) { }
+            }
+        }
+        return m;
+    }
+}
+
+// -----------------------------------------------------------------------------
+// MAIN ENTRY (AF_99)
+// -----------------------------------------------------------------------------
+
+public final class AF_99 {
+    public static void main(String[] args) {
+        int port = AF_99Config.DEFAULT_HTTP_PORT;
+        for (int i = 0; i < args.length; i++) {
+            if ("--port".equals(args[i]) && i + 1 < args.length) {
+                try { port = Integer.parseInt(args[i + 1]); } catch (NumberFormatException ignored) { }
+                break;
+            }
+        }
+        try {
+            AF_99Server server = new AF_99Server(port);
+            Runtime.getRuntime().addShutdownHook(new Thread(server::stop));
+            server.start();
+        } catch (Exception e) {
+            System.err.println("AF_99 failed to start: " + e.getMessage());
+            System.exit(1);
+        }
+    }
+}
+
+// =============================================================================
+// AF_99 EXTENDED: SIMULATION & BATCH ENGINE
+// =============================================================================
+
+final class AF_99SimulationRequest {
+    final long chainId;
+    final String tokenIn;
+    final String tokenOut;
+    final BigInteger amountIn;
+    final int stepsMax;
+
+    AF_99SimulationRequest(long chainId, String tokenIn, String tokenOut, BigInteger amountIn, int stepsMax) {
+        this.chainId = chainId;
+        this.tokenIn = tokenIn;

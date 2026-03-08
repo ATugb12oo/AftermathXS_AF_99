@@ -508,3 +508,54 @@ final class ZynthBridgeEngine {
     }
 
     BridgeInitiatedEvent initiateBridge(String quoteId, String recipient) {
+        if (!AftAddressValidator.isValid(recipient))
+            throw new ZynthBridgeException(ZynthBridgeCodes.ZB_SOURCE_CHAIN, "Invalid recipient");
+        ZynthBridgeQuote q = activeQuotes.get(quoteId);
+        if (q == null) throw new ZynthBridgeException(ZynthBridgeCodes.ZB_NONCE_COLLISION, "Quote not found");
+        if (System.currentTimeMillis() > q.validUntilMs)
+            throw new ZynthBridgeException(ZynthBridgeCodes.ZB_RELAY_BUSY, "Quote expired");
+        if (!relayBusy.compareAndSet(false, true)) throw new ZynthBridgeException(ZynthBridgeCodes.ZB_RELAY_BUSY, "Relay busy");
+        try {
+            String bridgeId = "BR-" + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+            return new BridgeInitiatedEvent(bridgeId, q.fromChainId, q.toChainId, q.token, q.amount, recipient, Instant.now());
+        } finally {
+            relayBusy.set(false);
+            activeQuotes.remove(quoteId);
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// UNIFIED PLATFORM (AftermathXS core)
+// -----------------------------------------------------------------------------
+
+public final class AftermathXSCore {
+    private final AftermathXSAggregator aggregator;
+    private final ZynthBridgeEngine bridgeEngine;
+    private final String platformVersion;
+    private static final String VERSION = "2.1.9-krelvex";
+
+    public AftermathXSCore() {
+        this.aggregator = new AftermathXSAggregator(BigInteger.valueOf(25), 45_000L);
+        this.bridgeEngine = new ZynthBridgeEngine(90_000L);
+        this.platformVersion = VERSION;
+        seedDefaultPools();
+    }
+
+    private void seedDefaultPools() {
+        BigInteger r1 = new BigInteger("1000000000000000000000");
+        BigInteger r2 = new BigInteger("2000000000000000000000");
+        BigInteger r3 = new BigInteger("500000000000000000000");
+        String suiUsdc = "0x2a1B3c4D5e6F7a8B9c0D1e2F3a4B5c6D7e8F9a1";
+        String suiUsdt = "0x4b5C6d7E8f9A0b1C2d3E4f5A6b7C8d9E0f1A2b3";
+        String suiSui = "0x6c7D8e9F0a1B2c3D4e5F6a7B8c9D0e1F2a3B4c5";
+        String solUsdc = "0x8d9E0f1A2b3C4d5E6f7A8b9C0d1E2f3A4b5C6d7";
+        String solSol = "0x0e1F2a3B4c5D6e7F8a9B0c1D2e3F4a5B6c7D8e9";
+        aggregator.registerPool(new AftPoolInfo("sui-pool-1", suiSui, suiUsdc, r1, r2, AftChainIds.CHAIN_SUI, "KrelvexSui"));
+        aggregator.registerPool(new AftPoolInfo("sui-pool-2", suiUsdc, suiUsdt, r2, r3, AftChainIds.CHAIN_SUI, "ZynthSui"));
+        aggregator.registerPool(new AftPoolInfo("sol-pool-1", solSol, solUsdc, r1, r2, AftChainIds.CHAIN_SOLANA, "KrelvexSol"));
+    }
+
+    public AftermathXSAggregator getAggregator() { return aggregator; }
+    public ZynthBridgeEngine getBridgeEngine() { return bridgeEngine; }
+    public String getPlatformVersion() { return platformVersion; }

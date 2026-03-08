@@ -253,3 +253,54 @@ final class AftPoolInfo {
     final long chainId;
     final String dexLabel;
 
+    AftPoolInfo(String poolId, String tokenA, String tokenB, BigInteger reserveA, BigInteger reserveB, long chainId, String dexLabel) {
+        this.poolId = poolId;
+        this.tokenA = tokenA;
+        this.tokenB = tokenB;
+        this.reserveA = reserveA;
+        this.reserveB = reserveB;
+        this.chainId = chainId;
+        this.dexLabel = dexLabel;
+    }
+
+    BigInteger getReserveFor(String token) {
+        if (token.equalsIgnoreCase(tokenA)) return reserveA;
+        if (token.equalsIgnoreCase(tokenB)) return reserveB;
+        return BigInteger.ZERO;
+    }
+}
+
+// -----------------------------------------------------------------------------
+// ROUTE STEP
+// -----------------------------------------------------------------------------
+
+final class AftRouteStep {
+    final String poolId;
+    final String tokenIn;
+    final String tokenOut;
+    final String dexLabel;
+    final BigInteger amountIn;
+    final BigInteger amountOut;
+
+    AftRouteStep(String poolId, String tokenIn, String tokenOut, String dexLabel, BigInteger amountIn, BigInteger amountOut) {
+        this.poolId = poolId;
+        this.tokenIn = tokenIn;
+        this.tokenOut = tokenOut;
+        this.dexLabel = dexLabel;
+        this.amountIn = amountIn;
+        this.amountOut = amountOut;
+    }
+}
+
+// -----------------------------------------------------------------------------
+// QUOTE RESULT
+// -----------------------------------------------------------------------------
+
+final class AftQuoteResult {
+    final List<AftRouteStep> steps;
+    final BigInteger amountIn;
+    final BigInteger amountOut;
+    final BigInteger feeAmount;
+    final long validUntilMs;
+    final String quoteId;
+

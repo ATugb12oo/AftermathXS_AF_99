@@ -712,3 +712,54 @@ final class AF_99Json {
     }
 
     static String toJson(Map<String, Object> map) {
+        if (map == null) return "{}";
+        StringBuilder sb = new StringBuilder("{");
+        boolean first = true;
+        for (Map.Entry<String, Object> e : map.entrySet()) {
+            if (!first) sb.append(",");
+            first = false;
+            sb.append(escape(e.getKey())).append(":");
+            Object v = e.getValue();
+            if (v == null) sb.append("null");
+            else if (v instanceof String) sb.append(escape((String) v));
+            else if (v instanceof Number) sb.append(v);
+            else if (v instanceof Boolean) sb.append((Boolean) v ? "true" : "false");
+            else if (v instanceof Map) sb.append(toJson((Map<String, Object>) v));
+            else if (v instanceof List) sb.append(toJsonList((List<?>) v));
+            else sb.append(escape(String.valueOf(v)));
+        }
+        sb.append("}");
+        return sb.toString();
+    }
+
+    private static String toJsonList(List<?> list) {
+        if (list == null) return "[]";
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < list.size(); i++) {
+            if (i > 0) sb.append(",");
+            Object v = list.get(i);
+            if (v == null) sb.append("null");
+            else if (v instanceof String) sb.append(escape((String) v));
+            else if (v instanceof Number) sb.append(v);
+            else if (v instanceof Boolean) sb.append((Boolean) v ? "true" : "false");
+            else if (v instanceof Map) sb.append(toJson((Map<String, Object>) v));
+            else sb.append(escape(String.valueOf(v)));
+        }
+        sb.append("]");
+        return sb.toString();
+    }
+}
+
+final class AF_99HttpHandler {
+    private final AftermathXSCore core;
+    private final AF_99QuoteCache quoteCache;
+
+    AF_99HttpHandler(AftermathXSCore core, AF_99QuoteCache quoteCache) {
+        this.core = core;
+        this.quoteCache = quoteCache;
+    }
+
+    String handle(String path, Map<String, String> queryParams, String body) {
+        if (path == null) path = "/";
+        path = path.split("\\?")[0];
+        if ("/quote".equals(path)) return handleQuote(queryParams);

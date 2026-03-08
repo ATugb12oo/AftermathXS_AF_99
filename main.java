@@ -1018,3 +1018,54 @@ final class AF_99SimulationRequest {
     AF_99SimulationRequest(long chainId, String tokenIn, String tokenOut, BigInteger amountIn, int stepsMax) {
         this.chainId = chainId;
         this.tokenIn = tokenIn;
+        this.tokenOut = tokenOut;
+        this.amountIn = amountIn;
+        this.stepsMax = stepsMax <= 0 ? 3 : stepsMax;
+    }
+}
+
+final class AF_99SimulationResult {
+    final List<AftRouteStep> steps;
+    final BigInteger totalOut;
+    final BigInteger totalFee;
+    final long durationMs;
+
+    AF_99SimulationResult(List<AftRouteStep> steps, BigInteger totalOut, BigInteger totalFee, long durationMs) {
+        this.steps = steps == null ? List.of() : Collections.unmodifiableList(new ArrayList<>(steps));
+        this.totalOut = totalOut == null ? BigInteger.ZERO : totalOut;
+        this.totalFee = totalFee == null ? BigInteger.ZERO : totalFee;
+        this.durationMs = durationMs;
+    }
+}
+
+final class AF_99SimulationEngine {
+    private final AftermathXSCore core;
+
+    AF_99SimulationEngine(AftermathXSCore core) {
+        this.core = core;
+    }
+
+    AF_99SimulationResult run(AF_99SimulationRequest req) {
+        long start = System.currentTimeMillis();
+        try {
+            AftQuoteResult quote = core.quoteSwap(req.chainId, req.tokenIn, req.tokenOut, req.amountIn, BigInteger.ZERO, 0);
+            long end = System.currentTimeMillis();
+            return new AF_99SimulationResult(quote.steps, quote.amountOut, quote.feeAmount, end - start);
+        } catch (Exception e) {
+            long end = System.currentTimeMillis();
+            return new AF_99SimulationResult(List.of(), BigInteger.ZERO, BigInteger.ZERO, end - start);
+        }
+    }
+}
+
+final class AF_99BatchQuoteItem {
+    final String id;
+    final long chainId;
+    final String tokenIn;
+    final String tokenOut;
+    final BigInteger amountIn;
+
+    AF_99BatchQuoteItem(String id, long chainId, String tokenIn, String tokenOut, BigInteger amountIn) {
+        this.id = id;
+        this.chainId = chainId;
+        this.tokenIn = tokenIn;

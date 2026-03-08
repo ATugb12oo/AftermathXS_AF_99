@@ -865,3 +865,54 @@ final class AF_99HttpHandler {
         }
     }
 
+    private String handleBridgeInit(Map<String, String> params) {
+        AF_99Request req = AF_99Request.fromMap(params);
+        try {
+            if (req.quoteId == null || req.recipient == null) {
+                return AF_99Json.toJson(Map.of("success", false, "errorCode", ZynthBridgeCodes.ZB_NONCE_COLLISION, "message", "Missing quoteId or recipient"));
+            }
+            BridgeInitiatedEvent ev = core.initiateBridge(req.quoteId, req.recipient);
+            Map<String, Object> data = new HashMap<>();
+            data.put("bridgeId", ev.bridgeId);
+            data.put("fromChainId", ev.fromChainId);
+            data.put("toChainId", ev.toChainId);
+            data.put("token", ev.token);
+            data.put("amount", ev.amount.toString());
+            data.put("recipient", ev.recipient);
+            data.put("timestamp", ev.timestamp.toString());
+            return AF_99Json.toJson(Map.of("success", true, "data", data));
+        } catch (ZynthBridgeException e) {
+            return AF_99Json.toJson(Map.of("success", false, "errorCode", e.getBridgeCode(), "message", e.getMessage()));
+        } catch (Exception e) {
+            return AF_99Json.toJson(Map.of("success", false, "errorCode", "ZB_RELAY_BUSY", "message", e.getMessage()));
+        }
+    }
+
+    private String handleStatus() {
+        Map<String, Object> data = new HashMap<>();
+        data.put("platform", "AftermathXS");
+        data.put("app", AF_99Config.APP_NAME);
+        data.put("version", core.getPlatformVersion());
+        data.put("paused", core.getAggregator().isPaused());
+        data.put("chains", List.of(AftChainIds.SUI_NETWORK_NAME, AftChainIds.SOLANA_NETWORK_NAME));
+        return AF_99Json.toJson(Map.of("success", true, "data", data));
+    }
+
+    private String handleHealth() {
+        return AF_99Json.toJson(Map.of("ok", true, "ts", System.currentTimeMillis()));
+    }
+}
+
+final class AF_99Server {
+    private final ServerSocket serverSocket;
+    private final AftermathXSCore core;
+    private final AF_99QuoteCache cache;
+    private final AF_99HttpHandler handler;
+    private volatile boolean running = true;
+
+    AF_99Server(int port) throws Exception {
+        this.serverSocket = new ServerSocket(port);
+        this.core = new AftermathXSCore();
+        this.cache = new AF_99QuoteCache(AF_99Config.CACHE_TTL_MS, AF_99Config.MAX_QUOTE_CACHE);
+        this.handler = new AF_99HttpHandler(core, cache);
+    }

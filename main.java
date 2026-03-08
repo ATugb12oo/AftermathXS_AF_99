@@ -661,3 +661,54 @@ final class AF_99Request {
         String c = params.get("chainId");
         if (c != null) try { r.chainId = Long.parseLong(c); } catch (NumberFormatException ignored) { }
         r.tokenIn = params.get("tokenIn");
+        r.tokenOut = params.get("tokenOut");
+        r.amountIn = params.get("amountIn");
+        r.minOut = params.get("minOut");
+        r.quoteId = params.get("quoteId");
+        r.recipient = params.get("recipient");
+        String d = params.get("deadlineMs");
+        if (d != null) try { r.deadlineMs = Long.parseLong(d); } catch (NumberFormatException ignored) { }
+        return r;
+    }
+}
+
+final class AF_99Response {
+    boolean success;
+    String errorCode;
+    String message;
+    Map<String, Object> data;
+
+    static AF_99Response ok(Map<String, Object> data) {
+        AF_99Response res = new AF_99Response();
+        res.success = true;
+        res.data = data;
+        return res;
+    }
+
+    static AF_99Response fail(String errorCode, String message) {
+        AF_99Response res = new AF_99Response();
+        res.success = false;
+        res.errorCode = errorCode;
+        res.message = message;
+        return res;
+    }
+}
+
+final class AF_99Json {
+    private static String escape(String s) {
+        if (s == null) return "null";
+        StringBuilder sb = new StringBuilder("\"");
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '"') sb.append("\\\"");
+            else if (c == '\\') sb.append("\\\\");
+            else if (c == '\n') sb.append("\\n");
+            else if (c == '\r') sb.append("\\r");
+            else if (c == '\t') sb.append("\\t");
+            else sb.append(c);
+        }
+        sb.append("\"");
+        return sb.toString();
+    }
+
+    static String toJson(Map<String, Object> map) {

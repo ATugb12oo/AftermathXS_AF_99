@@ -559,3 +559,54 @@ public final class AftermathXSCore {
     public AftermathXSAggregator getAggregator() { return aggregator; }
     public ZynthBridgeEngine getBridgeEngine() { return bridgeEngine; }
     public String getPlatformVersion() { return platformVersion; }
+
+    public AftQuoteResult quoteSwap(long chainId, String tokenIn, String tokenOut, BigInteger amountIn, BigInteger minOut, long deadlineMs) {
+        return aggregator.getQuote(chainId, tokenIn, tokenOut, amountIn, minOut, deadlineMs);
+    }
+
+    public SwapExecutedEvent executeSwap(String requestId, long chainId, String tokenIn, String tokenOut, BigInteger amountIn, BigInteger minOut, long deadlineMs) {
+        return aggregator.executeSwap(requestId, chainId, tokenIn, tokenOut, amountIn, minOut, deadlineMs);
+    }
+
+    public ZynthBridgeQuote getBridgeQuote(long fromChainId, long toChainId, String token, BigInteger amount) {
+        return bridgeEngine.getQuote(fromChainId, toChainId, token, amount);
+    }
+
+    public BridgeInitiatedEvent initiateBridge(String quoteId, String recipient) {
+        return bridgeEngine.initiateBridge(quoteId, recipient);
+    }
+}
+
+// =============================================================================
+// AF_99 APPLICATION
+// =============================================================================
+
+final class AF_99Config {
+    static final int DEFAULT_HTTP_PORT = 9947;
+    static final String APP_NAME = "AF_99";
+    static final String BIND_HOST = "0.0.0.0";
+    static final int MAX_QUOTE_CACHE = 512;
+    static final long CACHE_TTL_MS = 20_000L;
+}
+
+final class AF_99QuoteCache {
+    private final Map<String, CachedQuoteEntry> cache = new ConcurrentHashMap<>();
+    private final long ttlMs;
+    private final int maxSize;
+    private final LinkedHashMap<String, Long> accessOrder = new LinkedHashMap<>(16, 0.75f, true);
+
+    AF_99QuoteCache(long ttlMs, int maxSize) {
+        this.ttlMs = ttlMs;
+        this.maxSize = maxSize;
+    }
+
+    static final class CachedQuoteEntry {
+        final AftQuoteResult result;
+        final long expiresAt;
+
+        CachedQuoteEntry(AftQuoteResult result, long expiresAt) {
+            this.result = result;
+            this.expiresAt = expiresAt;
+        }
+    }
+

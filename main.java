@@ -916,3 +916,54 @@ final class AF_99Server {
         this.cache = new AF_99QuoteCache(AF_99Config.CACHE_TTL_MS, AF_99Config.MAX_QUOTE_CACHE);
         this.handler = new AF_99HttpHandler(core, cache);
     }
+
+    void start() {
+        System.out.println(AF_99Config.APP_NAME + " listening on port " + serverSocket.getLocalPort());
+        while (running) {
+            try {
+                Socket client = serverSocket.accept();
+                Thread t = new Thread(() -> serve(client));
+                t.setDaemon(true);
+                t.start();
+            } catch (IOException e) {
+                if (running) e.printStackTrace();
+            }
+        }
+    }
+
+    void stop() {
+        running = false;
+        try { serverSocket.close(); } catch (IOException ignored) { }
+    }
+
+    private void serve(Socket client) {
+        try (Socket c = client;
+             BufferedReader in = new BufferedReader(new InputStreamReader(c.getInputStream()));
+             OutputStream out = c.getOutputStream()) {
+            String first = in.readLine();
+            if (first == null) return;
+            String[] parts = first.split("\\s+");
+            String method = parts.length > 0 ? parts[0] : "GET";
+            String path = parts.length > 1 ? parts[1] : "/";
+            Map<String, String> query = parseQuery(path);
+            StringBuilder body = new StringBuilder();
+            while (in.ready()) {
+                int ch = in.read();
+                if (ch < 0) break;
+                body.append((char) ch);
+            }
+            String response = handler.handle(path, query, body.toString());
+            String http = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n" + response;
+            out.write(http.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            out.flush();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private Map<String, String> parseQuery(String path) {
+        Map<String, String> m = new HashMap<>();
+        int q = path.indexOf('?');
+        if (q < 0) return m;
+        String qs = path.substring(q + 1);
+        for (String pair : qs.split("&")) {

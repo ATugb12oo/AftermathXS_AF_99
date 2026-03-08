@@ -355,3 +355,54 @@ final class AftermathXSAggregator {
     private final BigInteger feeBps;
     private final long quoteTtlMs;
 
+    AftermathXSAggregator(BigInteger feeBps, long quoteTtlMs) {
+        this.feeBps = feeBps == null || feeBps.compareTo(FEE_BPS_MAX) > 0 ? FEE_BPS_DEFAULT : feeBps;
+        this.quoteTtlMs = quoteTtlMs <= 0 ? 30_000L : quoteTtlMs;
+    }
+
+    void registerPool(AftPoolInfo pool) {
+        if (pool == null) return;
+        poolsByChain.computeIfAbsent(pool.chainId, k -> new CopyOnWriteArrayList<>()).add(pool);
+        whitelistedTokens.add(pool.tokenA);
+        whitelistedTokens.add(pool.tokenB);
+    }
+
+    void setPaused(boolean value) {
+        paused.set(value);
+    }
+
+    boolean isPaused() {
+        return paused.get();
+    }
+
+    void requireNotPaused() {
+        if (paused.get()) throw new KrelvexRouteException(AftErrorCodes.AFT_PAUSED, "Platform paused");
+    }
+
+    void requireWhitelisted(String token) {
+        if (!whitelistedTokens.contains(token))
+            throw new KrelvexRouteException(AftErrorCodes.AFT_TOKEN_NOT_WHITELISTED, "Token: " + token);
+    }
+
+    AftQuoteResult getQuote(long chainId, String tokenIn, String tokenOut, BigInteger amountIn, BigInteger minOut, long deadlineMs) {
+        requireNotPaused();
+        if (amountIn == null || amountIn.signum() <= 0)
+            throw new KrelvexRouteException(AftErrorCodes.AFT_ZERO_AMOUNT, "amountIn must be positive");
+        if (chainId != AftChainIds.CHAIN_SUI && chainId != AftChainIds.CHAIN_SOLANA)
+            throw new KrelvexRouteException(AftErrorCodes.AFT_CHAIN_UNSUPPORTED, "chainId=" + chainId);
+        requireWhitelisted(tokenIn);
+        requireWhitelisted(tokenOut);
+        if (deadlineMs > 0 && System.currentTimeMillis() > deadlineMs)
+            throw new KrelvexRouteException(AftErrorCodes.AFT_DEADLINE_PASSED, "Deadline passed");
+
+        List<AftPoolInfo> pools = poolsByChain.get(chainId);
+        if (pools == null || pools.isEmpty())
+            throw new KrelvexRouteException(AftErrorCodes.AFT_POOL_NOT_FOUND, "No pools for chain");
+
+        quoteLock.lock();
+        try {
+            List<AftRouteStep> steps = findBestRoute(pools, tokenIn, tokenOut, amountIn);
+            if (steps.isEmpty())
+                throw new KrelvexRouteException(AftErrorCodes.AFT_INVALID_ROUTE, "No route");
+            BigInteger out = steps.get(steps.size() - 1).amountOut;
+            BigInteger fee = out.multiply(feeBps).divide(BigInteger.valueOf(10_000));

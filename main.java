@@ -457,3 +457,54 @@ final class AftermathXSAggregator {
             if (second.isEmpty()) continue;
             BigInteger finalOut = second.get(0).amountOut;
             if (finalOut.compareTo(bestOut) > 0) {
+                bestOut = finalOut;
+                best = new ArrayList<>(first);
+                best.addAll(second);
+            }
+        }
+        return best;
+    }
+
+    SwapExecutedEvent executeSwap(String requestId, long chainId, String tokenIn, String tokenOut, BigInteger amountIn, BigInteger minOut, long deadlineMs) {
+        AftQuoteResult quote = getQuote(chainId, tokenIn, tokenOut, amountIn, minOut, deadlineMs);
+        if (System.currentTimeMillis() > quote.validUntilMs)
+            throw new KrelvexRouteException(AftErrorCodes.AFT_ROUTE_STALE, "Quote expired");
+        requireNotPaused();
+        return new SwapExecutedEvent(requestId, chainId, tokenIn, tokenOut, quote.amountIn, quote.amountOut, Instant.now());
+    }
+}
+
+// -----------------------------------------------------------------------------
+// BRIDGE ENGINE
+// -----------------------------------------------------------------------------
+
+final class ZynthBridgeEngine {
+    private final AtomicBoolean relayBusy = new AtomicBoolean(false);
+    private final Map<String, ZynthBridgeQuote> activeQuotes = new ConcurrentHashMap<>();
+    private final long quoteTtlMs;
+    private static final BigInteger MIN_BRIDGE_AMOUNT = new BigInteger("1000000000000000");
+    private static final BigInteger RELAY_FEE_BPS = BigInteger.valueOf(10);
+
+    ZynthBridgeEngine(long quoteTtlMs) {
+        this.quoteTtlMs = quoteTtlMs <= 0 ? 60_000L : quoteTtlMs;
+    }
+
+    ZynthBridgeQuote getQuote(long fromChainId, long toChainId, String token, BigInteger amount) {
+        if (amount == null || amount.compareTo(MIN_BRIDGE_AMOUNT) < 0)
+            throw new ZynthBridgeException(ZynthBridgeCodes.ZB_AMOUNT_TOO_LOW, "Amount below minimum");
+        if (fromChainId == toChainId)
+            throw new ZynthBridgeException(ZynthBridgeCodes.ZB_SOURCE_CHAIN, "Same chain");
+        if (fromChainId != AftChainIds.CHAIN_SUI && fromChainId != AftChainIds.CHAIN_SOLANA)
+            throw new ZynthBridgeException(ZynthBridgeCodes.ZB_SOURCE_CHAIN, "Unsupported source");
+        if (toChainId != AftChainIds.CHAIN_SUI && toChainId != AftChainIds.CHAIN_SOLANA)
+            throw new ZynthBridgeException(ZynthBridgeCodes.ZB_DEST_CHAIN, "Unsupported dest");
+        BigInteger relayFee = amount.multiply(RELAY_FEE_BPS).divide(BigInteger.valueOf(10_000));
+        BigInteger estimatedReceived = amount.subtract(relayFee);
+        long validUntil = System.currentTimeMillis() + quoteTtlMs;
+        String quoteId = "ZB-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+        ZynthBridgeQuote q = new ZynthBridgeQuote(quoteId, fromChainId, toChainId, token, amount, estimatedReceived, relayFee, validUntil);
+        activeQuotes.put(quoteId, q);
+        return q;
+    }
+
+    BridgeInitiatedEvent initiateBridge(String quoteId, String recipient) {

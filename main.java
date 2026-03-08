@@ -406,3 +406,54 @@ final class AftermathXSAggregator {
                 throw new KrelvexRouteException(AftErrorCodes.AFT_INVALID_ROUTE, "No route");
             BigInteger out = steps.get(steps.size() - 1).amountOut;
             BigInteger fee = out.multiply(feeBps).divide(BigInteger.valueOf(10_000));
+            BigInteger outAfterFee = out.subtract(fee);
+            if (minOut != null && minOut.signum() > 0 && outAfterFee.compareTo(minOut) < 0)
+                throw new KrelvexRouteException(AftErrorCodes.AFT_SLIPPAGE_EXCEEDED, "minOut not met");
+            long validUntil = System.currentTimeMillis() + quoteTtlMs;
+            String quoteId = "AFT-Q-" + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+            return new AftQuoteResult(steps, amountIn, outAfterFee, fee, validUntil, quoteId);
+        } finally {
+            quoteLock.unlock();
+        }
+    }
+
+    private List<AftRouteStep> findBestRoute(List<AftPoolInfo> pools, String tokenIn, String tokenOut, BigInteger amountIn) {
+        if (tokenIn.equalsIgnoreCase(tokenOut)) return Collections.emptyList();
+        List<AftRouteStep> direct = tryDirectRoute(pools, tokenIn, tokenOut, amountIn);
+        if (!direct.isEmpty()) return direct;
+        return tryTwoHopRoute(pools, tokenIn, tokenOut, amountIn);
+    }
+
+    private List<AftRouteStep> tryDirectRoute(List<AftPoolInfo> pools, String tokenIn, String tokenOut, BigInteger amountIn) {
+        for (AftPoolInfo p : pools) {
+            if (!((p.tokenA.equalsIgnoreCase(tokenIn) && p.tokenB.equalsIgnoreCase(tokenOut)) ||
+                  (p.tokenA.equalsIgnoreCase(tokenOut) && p.tokenB.equalsIgnoreCase(tokenIn)))) continue;
+            BigInteger reserveIn = p.getReserveFor(tokenIn);
+            BigInteger reserveOut = p.getReserveFor(tokenOut);
+            if (reserveIn.signum() == 0) continue;
+            BigInteger amountOut = amountIn.multiply(reserveOut).divide(reserveIn);
+            if (amountOut.signum() == 0) continue;
+            AftRouteStep step = new AftRouteStep(p.poolId, tokenIn, tokenOut, p.dexLabel, amountIn, amountOut);
+            return List.of(step);
+        }
+        return Collections.emptyList();
+    }
+
+    private List<AftRouteStep> tryTwoHopRoute(List<AftPoolInfo> pools, String tokenIn, String tokenOut, BigInteger amountIn) {
+        Set<String> midTokens = new HashSet<>();
+        for (AftPoolInfo p : pools) {
+            if (p.tokenA.equalsIgnoreCase(tokenIn) || p.tokenB.equalsIgnoreCase(tokenIn)) {
+                String mid = p.tokenA.equalsIgnoreCase(tokenIn) ? p.tokenB : p.tokenA;
+                midTokens.add(mid);
+            }
+        }
+        List<AftRouteStep> best = Collections.emptyList();
+        BigInteger bestOut = BigInteger.ZERO;
+        for (String mid : midTokens) {
+            List<AftRouteStep> first = tryDirectRoute(pools, tokenIn, mid, amountIn);
+            if (first.isEmpty()) continue;
+            BigInteger midAmount = first.get(0).amountOut;
+            List<AftRouteStep> second = tryDirectRoute(pools, mid, tokenOut, midAmount);
+            if (second.isEmpty()) continue;
+            BigInteger finalOut = second.get(0).amountOut;
+            if (finalOut.compareTo(bestOut) > 0) {

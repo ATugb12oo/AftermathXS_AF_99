@@ -763,3 +763,54 @@ final class AF_99HttpHandler {
         if (path == null) path = "/";
         path = path.split("\\?")[0];
         if ("/quote".equals(path)) return handleQuote(queryParams);
+        if ("/swap".equals(path)) return handleSwap(queryParams);
+        if ("/bridge/quote".equals(path)) return handleBridgeQuote(queryParams);
+        if ("/bridge/init".equals(path)) return handleBridgeInit(queryParams);
+        if ("/status".equals(path)) return handleStatus();
+        if ("/health".equals(path)) return handleHealth();
+        return AF_99Json.toJson(Map.of("error", "not_found", "path", path));
+    }
+
+    private String handleQuote(Map<String, String> params) {
+        AF_99Request req = AF_99Request.fromMap(params);
+        try {
+            if (req.chainId == null || req.tokenIn == null || req.tokenOut == null || req.amountIn == null) {
+                return AF_99Json.toJson(Map.of("success", false, "errorCode", AftErrorCodes.AFT_INVALID_ADDRESS, "message", "Missing params"));
+            }
+            BigInteger amountIn = new BigInteger(req.amountIn);
+            BigInteger minOut = req.minOut != null ? new BigInteger(req.minOut) : BigInteger.ZERO;
+            long deadline = req.deadlineMs != null ? req.deadlineMs : System.currentTimeMillis() + 120_000;
+            String cacheKey = req.chainId + ":" + req.tokenIn + ":" + req.tokenOut + ":" + req.amountIn;
+            AftQuoteResult cached = quoteCache.get(cacheKey);
+            if (cached != null) {
+                Map<String, Object> data = new HashMap<>();
+                data.put("quoteId", cached.quoteId);
+                data.put("amountIn", cached.amountIn.toString());
+                data.put("amountOut", cached.amountOut.toString());
+                data.put("feeAmount", cached.feeAmount.toString());
+                data.put("validUntilMs", cached.validUntilMs);
+                data.put("cached", true);
+                return AF_99Json.toJson(Map.of("success", true, "data", data));
+            }
+            AftQuoteResult quote = core.quoteSwap(req.chainId, req.tokenIn, req.tokenOut, amountIn, minOut, deadline);
+            quoteCache.put(cacheKey, quote);
+            Map<String, Object> data = new HashMap<>();
+            data.put("quoteId", quote.quoteId);
+            data.put("amountIn", quote.amountIn.toString());
+            data.put("amountOut", quote.amountOut.toString());
+            data.put("feeAmount", quote.feeAmount.toString());
+            data.put("validUntilMs", quote.validUntilMs);
+            return AF_99Json.toJson(Map.of("success", true, "data", data));
+        } catch (KrelvexRouteException e) {
+            return AF_99Json.toJson(Map.of("success", false, "errorCode", e.getAftCode(), "message", e.getMessage()));
+        } catch (Exception e) {
+            return AF_99Json.toJson(Map.of("success", false, "errorCode", "AFT_INTEGRITY_CHECK", "message", e.getMessage()));
+        }
+    }
+
+    private String handleSwap(Map<String, String> params) {
+        AF_99Request req = AF_99Request.fromMap(params);
+        try {
+            if (req.chainId == null || req.tokenIn == null || req.tokenOut == null || req.amountIn == null) {
+                return AF_99Json.toJson(Map.of("success", false, "errorCode", AftErrorCodes.AFT_INVALID_ADDRESS, "message", "Missing params"));
+            }

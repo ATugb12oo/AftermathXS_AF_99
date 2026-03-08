@@ -304,3 +304,54 @@ final class AftQuoteResult {
     final long validUntilMs;
     final String quoteId;
 
+    AftQuoteResult(List<AftRouteStep> steps, BigInteger amountIn, BigInteger amountOut, BigInteger feeAmount, long validUntilMs, String quoteId) {
+        this.steps = Collections.unmodifiableList(new ArrayList<>(steps));
+        this.amountIn = amountIn;
+        this.amountOut = amountOut;
+        this.feeAmount = feeAmount;
+        this.validUntilMs = validUntilMs;
+        this.quoteId = quoteId;
+    }
+}
+
+// -----------------------------------------------------------------------------
+// BRIDGE QUOTE
+// -----------------------------------------------------------------------------
+
+final class ZynthBridgeQuote {
+    final String quoteId;
+    final long fromChainId;
+    final long toChainId;
+    final String token;
+    final BigInteger amount;
+    final BigInteger estimatedReceived;
+    final BigInteger relayFee;
+    final long validUntilMs;
+
+    ZynthBridgeQuote(String quoteId, long fromChainId, long toChainId, String token, BigInteger amount,
+                     BigInteger estimatedReceived, BigInteger relayFee, long validUntilMs) {
+        this.quoteId = quoteId;
+        this.fromChainId = fromChainId;
+        this.toChainId = toChainId;
+        this.token = token;
+        this.amount = amount;
+        this.estimatedReceived = estimatedReceived;
+        this.relayFee = relayFee;
+        this.validUntilMs = validUntilMs;
+    }
+}
+
+// -----------------------------------------------------------------------------
+// CORE AGGREGATOR ENGINE
+// -----------------------------------------------------------------------------
+
+final class AftermathXSAggregator {
+    private final Map<Long, List<AftPoolInfo>> poolsByChain = new ConcurrentHashMap<>();
+    private final Set<String> whitelistedTokens = ConcurrentHashMap.newKeySet();
+    private final AtomicBoolean paused = new AtomicBoolean(false);
+    private final ReentrantLock quoteLock = new ReentrantLock();
+    private static final BigInteger FEE_BPS_MAX = BigInteger.valueOf(100);
+    private static final BigInteger FEE_BPS_DEFAULT = BigInteger.valueOf(30);
+    private final BigInteger feeBps;
+    private final long quoteTtlMs;
+

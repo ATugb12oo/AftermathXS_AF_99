@@ -814,3 +814,54 @@ final class AF_99HttpHandler {
             if (req.chainId == null || req.tokenIn == null || req.tokenOut == null || req.amountIn == null) {
                 return AF_99Json.toJson(Map.of("success", false, "errorCode", AftErrorCodes.AFT_INVALID_ADDRESS, "message", "Missing params"));
             }
+            BigInteger amountIn = new BigInteger(req.amountIn);
+            BigInteger minOut = req.minOut != null ? new BigInteger(req.minOut) : BigInteger.ZERO;
+            long deadline = req.deadlineMs != null ? req.deadlineMs : System.currentTimeMillis() + 120_000;
+            String requestId = "req-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+            SwapExecutedEvent ev = core.executeSwap(requestId, req.chainId, req.tokenIn, req.tokenOut, amountIn, minOut, deadline);
+            Map<String, Object> data = new HashMap<>();
+            data.put("requestId", ev.requestId);
+            data.put("chainId", ev.chainId);
+            data.put("tokenIn", ev.tokenIn);
+            data.put("tokenOut", ev.tokenOut);
+            data.put("amountIn", ev.amountIn.toString());
+            data.put("amountOut", ev.amountOut.toString());
+            data.put("timestamp", ev.timestamp.toString());
+            return AF_99Json.toJson(Map.of("success", true, "data", data));
+        } catch (KrelvexRouteException e) {
+            return AF_99Json.toJson(Map.of("success", false, "errorCode", e.getAftCode(), "message", e.getMessage()));
+        } catch (Exception e) {
+            return AF_99Json.toJson(Map.of("success", false, "errorCode", "AFT_INTEGRITY_CHECK", "message", e.getMessage()));
+        }
+    }
+
+    private String handleBridgeQuote(Map<String, String> params) {
+        AF_99Request req = AF_99Request.fromMap(params);
+        try {
+            String from = params.get("fromChainId");
+            String to = params.get("toChainId");
+            String amount = params.get("amount");
+            if (from == null || to == null || amount == null || req.tokenIn == null) {
+                return AF_99Json.toJson(Map.of("success", false, "errorCode", ZynthBridgeCodes.ZB_SOURCE_CHAIN, "message", "Missing params"));
+            }
+            long fromChainId = Long.parseLong(from);
+            long toChainId = Long.parseLong(to);
+            BigInteger amountBi = new BigInteger(amount);
+            ZynthBridgeQuote q = core.getBridgeQuote(fromChainId, toChainId, req.tokenIn, amountBi);
+            Map<String, Object> data = new HashMap<>();
+            data.put("quoteId", q.quoteId);
+            data.put("fromChainId", q.fromChainId);
+            data.put("toChainId", q.toChainId);
+            data.put("token", q.token);
+            data.put("amount", q.amount.toString());
+            data.put("estimatedReceived", q.estimatedReceived.toString());
+            data.put("relayFee", q.relayFee.toString());
+            data.put("validUntilMs", q.validUntilMs);
+            return AF_99Json.toJson(Map.of("success", true, "data", data));
+        } catch (ZynthBridgeException e) {
+            return AF_99Json.toJson(Map.of("success", false, "errorCode", e.getBridgeCode(), "message", e.getMessage()));
+        } catch (Exception e) {
+            return AF_99Json.toJson(Map.of("success", false, "errorCode", "ZB_RELAY_BUSY", "message", e.getMessage()));
+        }
+    }
+

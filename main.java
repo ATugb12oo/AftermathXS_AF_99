@@ -610,3 +610,54 @@ final class AF_99QuoteCache {
         }
     }
 
+    void put(String key, AftQuoteResult result) {
+        if (key == null || result == null) return;
+        evictIfNeeded();
+        long expiresAt = System.currentTimeMillis() + ttlMs;
+        cache.put(key, new CachedQuoteEntry(result, expiresAt));
+        accessOrder.put(key, System.currentTimeMillis());
+    }
+
+    AftQuoteResult get(String key) {
+        CachedQuoteEntry e = cache.get(key);
+        if (e == null) return null;
+        if (System.currentTimeMillis() > e.expiresAt) {
+            cache.remove(key);
+            accessOrder.remove(key);
+            return null;
+        }
+        accessOrder.put(key, System.currentTimeMillis());
+        return e.result;
+    }
+
+    private void evictIfNeeded() {
+        if (cache.size() < maxSize) return;
+        Iterator<Map.Entry<String, Long>> it = accessOrder.entrySet().iterator();
+        while (it.hasNext() && cache.size() >= maxSize) {
+            Map.Entry<String, Long> next = it.next();
+            cache.remove(next.getKey());
+            it.remove();
+        }
+        long now = System.currentTimeMillis();
+        cache.entrySet().removeIf(entry -> entry.getValue().expiresAt < now);
+        accessOrder.entrySet().removeIf(entry -> entry.getValue() < now - ttlMs);
+    }
+}
+
+final class AF_99Request {
+    String action;
+    Long chainId;
+    String tokenIn;
+    String tokenOut;
+    String amountIn;
+    String minOut;
+    String quoteId;
+    String recipient;
+    Long deadlineMs;
+
+    static AF_99Request fromMap(Map<String, String> params) {
+        AF_99Request r = new AF_99Request();
+        r.action = params.get("action");
+        String c = params.get("chainId");
+        if (c != null) try { r.chainId = Long.parseLong(c); } catch (NumberFormatException ignored) { }
+        r.tokenIn = params.get("tokenIn");

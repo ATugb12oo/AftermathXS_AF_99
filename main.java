@@ -1222,3 +1222,54 @@ final class AF_99ConfigLoader {
         if (port != null) m.put("port", port);
         String host = System.getenv("AF_99_HOST");
         if (host != null) m.put("host", host);
+        String cacheSize = System.getenv("AF_99_CACHE_SIZE");
+        if (cacheSize != null) m.put("cacheSize", cacheSize);
+        String cacheTtl = System.getenv("AF_99_CACHE_TTL_MS");
+        if (cacheTtl != null) m.put("cacheTtlMs", cacheTtl);
+        return m;
+    }
+
+    static int getPort(Map<String, String> env) {
+        String p = env.get("port");
+        if (p == null) return AF_99Config.DEFAULT_HTTP_PORT;
+        try { return Integer.parseInt(p); } catch (NumberFormatException e) { return AF_99Config.DEFAULT_HTTP_PORT; }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// LOGGING ADAPTER (simple stdout)
+// -----------------------------------------------------------------------------
+
+final class AF_99Log {
+    static void info(String msg) {
+        System.out.println("[AF_99 INFO] " + Instant.now() + " " + msg);
+    }
+    static void warn(String msg) {
+        System.err.println("[AF_99 WARN] " + Instant.now() + " " + msg);
+    }
+    static void error(String msg, Throwable t) {
+        System.err.println("[AF_99 ERROR] " + Instant.now() + " " + msg);
+        if (t != null) t.printStackTrace(System.err);
+    }
+}
+
+// -----------------------------------------------------------------------------
+// EXTRA ADDRESS CONSTANTS (platform reserves - immutable)
+// -----------------------------------------------------------------------------
+
+final class AftReserveAddresses {
+    static final String SUI_USDC_POOL = "0x8F3a2B1c4D5e6f7A8b9C0d1E2f3A4b5C6d7E8f9";
+    static final String SUI_USDT_POOL = "0x1a2B3c4D5e6F7a8B9c0D1e2F3a4B5c6D7e8F9a0";
+    static final String SOL_USDC_POOL = "0x3b4C5d6E7f8A9b0C1d2E3f4A5b6C7d8E9f0A1b2";
+    static final String RELAY_SUI_IN = "0x5c6D7e8F9a0B1c2D3e4F5a6b7C8d9E0f1A2b3C4";
+    static final String RELAY_SOL_IN = "0x7d8E9f0A1b2C3d4E5f6A7b8C9d0E1f2A3b4C5d6";
+    static final String FEE_TREASURY = "0x9e0F1a2B3c4D5e6F7a8B9c0D1e2F3a4B5c6D7e8";
+}
+
+// -----------------------------------------------------------------------------
+// FEE CALCULATOR (immutable fee tiers)
+// -----------------------------------------------------------------------------
+
+final class AftFeeTiers {
+    static final BigInteger TIER_LOW_BPS = BigInteger.valueOf(15);
+    static final BigInteger TIER_MID_BPS = BigInteger.valueOf(30);

@@ -1732,3 +1732,54 @@ final class AF_99GasEstimator {
         BigInteger price = new BigInteger("1000000000");
         return new AftGasEstimate(units, price, units.multiply(price));
     }
+
+    static AftGasEstimate forBridge() {
+        BigInteger price = new BigInteger("1000000000");
+        return new AftGasEstimate(BRIDGE_RELAY_GAS, price, BRIDGE_RELAY_GAS.multiply(price));
+    }
+}
+
+// -----------------------------------------------------------------------------
+// REFERRAL TRACKER (fee share representation)
+// -----------------------------------------------------------------------------
+
+final class AF_99ReferralCode {
+    final String code;
+    final String referrerAddress;
+    final int feeShareBps;
+    final long createdAtMs;
+
+    AF_99ReferralCode(String code, String referrerAddress, int feeShareBps, long createdAtMs) {
+        this.code = code;
+        this.referrerAddress = referrerAddress;
+        this.feeShareBps = Math.min(500, Math.max(0, feeShareBps));
+        this.createdAtMs = createdAtMs;
+    }
+}
+
+final class AF_99ReferralTracker {
+    private final Map<String, AF_99ReferralCode> codes = new ConcurrentHashMap<>();
+    private final Map<String, BigInteger> volumeByCode = new ConcurrentHashMap<>();
+
+    void register(AF_99ReferralCode ref) {
+        if (ref != null && ref.code != null) codes.put(ref.code, ref);
+    }
+
+    void recordVolume(String code, BigInteger amount) {
+        if (code != null && amount != null && amount.signum() > 0) {
+            volumeByCode.merge(code, amount, BigInteger::add);
+        }
+    }
+
+    BigInteger getVolume(String code) {
+        return volumeByCode.getOrDefault(code, BigInteger.ZERO);
+    }
+}
+
+// -----------------------------------------------------------------------------
+// MAINTENANCE WINDOW (pause scheduling)
+// -----------------------------------------------------------------------------
+
+final class AF_99MaintenanceWindow {
+    final long startMs;
+    final long endMs;

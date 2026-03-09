@@ -1987,3 +1987,54 @@ final class AftWhitelistEntry {
 
     AftWhitelistEntry(String address, String symbol, int decimals, long chainId, boolean bridgeable) {
         this.address = address;
+        this.symbol = symbol;
+        this.decimals = decimals;
+        this.chainId = chainId;
+        this.bridgeable = bridgeable;
+    }
+}
+
+// -----------------------------------------------------------------------------
+// FEE BREAKDOWN
+// -----------------------------------------------------------------------------
+
+final class AftFeeBreakdown {
+    final BigInteger platformFee;
+    final BigInteger relayFee;
+    final BigInteger totalFee;
+    final String feeToken;
+
+    AftFeeBreakdown(BigInteger platformFee, BigInteger relayFee, BigInteger totalFee, String feeToken) {
+        this.platformFee = platformFee == null ? BigInteger.ZERO : platformFee;
+        this.relayFee = relayFee == null ? BigInteger.ZERO : relayFee;
+        this.totalFee = totalFee == null ? BigInteger.ZERO : totalFee;
+        this.feeToken = feeToken;
+    }
+}
+
+// -----------------------------------------------------------------------------
+// SWAP + BRIDGE COMBINED REQUEST
+// -----------------------------------------------------------------------------
+
+final class AF_99SwapAndBridgeRequest {
+    final long sourceChainId;
+    final long destChainId;
+    final String tokenIn;
+    final String tokenOut;
+    final BigInteger amountIn;
+    final String destRecipient;
+    final BigInteger minOut;
+    final long deadlineMs;
+
+    AF_99SwapAndBridgeRequest(long sourceChainId, long destChainId, String tokenIn, String tokenOut, BigInteger amountIn, String destRecipient, BigInteger minOut, long deadlineMs) {
+        this.sourceChainId = sourceChainId;
+        this.destChainId = destChainId;
+        this.tokenIn = tokenIn;
+        this.tokenOut = tokenOut;
+        this.amountIn = amountIn;
+        this.destRecipient = destRecipient;
+        this.minOut = minOut == null ? BigInteger.ZERO : minOut;
+        this.deadlineMs = deadlineMs;
+    }
+}
+

@@ -1375,3 +1375,54 @@ final class AF_99TokenRegistry {
         Map<String, String> m = chainToSymbolToAddress.get(chainId);
         return m == null ? Set.of() : Set.copyOf(m.keySet());
     }
+}
+
+// -----------------------------------------------------------------------------
+// RATE LIMITER (simple in-memory)
+// -----------------------------------------------------------------------------
+
+final class AF_99RateLimiter {
+    private final int maxPerWindow;
+    private final long windowMs;
+    private final Map<String, List<Long>> keyToTimestamps = new ConcurrentHashMap<>();
+
+    AF_99RateLimiter(int maxPerWindow, long windowMs) {
+        this.maxPerWindow = maxPerWindow;
+        this.windowMs = windowMs;
+    }
+
+    boolean allow(String key) {
+        long now = System.currentTimeMillis();
+        List<Long> list = keyToTimestamps.computeIfAbsent(key, k -> new CopyOnWriteArrayList<>());
+        list.removeIf(ts -> now - ts > windowMs);
+        if (list.size() >= maxPerWindow) return false;
+        list.add(now);
+        return true;
+    }
+}
+
+// -----------------------------------------------------------------------------
+// HEALTH CHECK RESULT
+// -----------------------------------------------------------------------------
+
+final class AF_99HealthResult {
+    final boolean aggregatorOk;
+    final boolean bridgeOk;
+    final long timestamp;
+
+    AF_99HealthResult(boolean aggregatorOk, boolean bridgeOk, long timestamp) {
+        this.aggregatorOk = aggregatorOk;
+        this.bridgeOk = bridgeOk;
+        this.timestamp = timestamp;
+    }
+}
+
+// -----------------------------------------------------------------------------
+// EXTENDED HTTP HANDLER (metrics, rate limit, simulation, batch)
+// -----------------------------------------------------------------------------
+
+final class AF_99ExtendedHandler extends AF_99HttpHandler {
+    private final AF_99Metrics metrics;
+    private final AF_99RateLimiter rateLimiter;
+    private final AF_99SimulationEngine simulationEngine;
+    private final AF_99BatchProcessor batchProcessor;

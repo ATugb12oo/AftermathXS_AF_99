@@ -1834,3 +1834,54 @@ final class AF_99RouteComparator implements Comparator<AftQuoteResult> {
 
 // -----------------------------------------------------------------------------
 // MULTI-HOP ROUTE BUILDER (3+ hops)
+// -----------------------------------------------------------------------------
+
+final class AF_99MultiHopBuilder {
+    private final List<AftPoolInfo> pools;
+    private final int maxHops;
+
+    AF_99MultiHopBuilder(List<AftPoolInfo> pools, int maxHops) {
+        this.pools = pools == null ? List.of() : pools;
+        this.maxHops = maxHops <= 0 ? 3 : Math.min(maxHops, AftPlatformConstants.MAX_ROUTE_STEPS);
+    }
+
+    List<AftRouteStep> build(String tokenIn, String tokenOut, BigInteger amountIn) {
+        if (tokenIn == null || tokenOut == null || amountIn == null || amountIn.signum() <= 0) return List.of();
+        if (tokenIn.equalsIgnoreCase(tokenOut)) return List.of();
+        List<List<AftRouteStep>> candidates = new ArrayList<>();
+        Deque<Object> stack = new ArrayDeque<>();
+        stack.push(new Object[] { tokenIn, amountIn, new ArrayList<AftRouteStep>() });
+        while (!stack.isEmpty() && candidates.size() < 20) {
+            Object[] frame = (Object[]) stack.pop();
+            String current = (String) frame[0];
+            BigInteger amt = (BigInteger) frame[1];
+            @SuppressWarnings("unchecked")
+            List<AftRouteStep> path = (List<AftRouteStep>) frame[2];
+            if (path.size() >= maxHops) continue;
+            if (current.equalsIgnoreCase(tokenOut)) {
+                candidates.add(new ArrayList<>(path));
+                continue;
+            }
+            for (AftPoolInfo p : pools) {
+                String next = null;
+                if (p.tokenA.equalsIgnoreCase(current)) next = p.tokenB;
+                else if (p.tokenB.equalsIgnoreCase(current)) next = p.tokenA;
+                if (next == null) continue;
+                BigInteger reserveIn = p.getReserveFor(current);
+                BigInteger reserveOut = p.getReserveFor(next);
+                if (reserveIn.signum() == 0) continue;
+                BigInteger outAmt = amt.multiply(reserveOut).divide(reserveIn);
+                if (outAmt.signum() == 0) continue;
+                List<AftRouteStep> newPath = new ArrayList<>(path);
+                newPath.add(new AftRouteStep(p.poolId, current, next, p.dexLabel, amt, outAmt));
+                stack.push(new Object[] { next, outAmt, newPath });
+            }
+        }
+        if (candidates.isEmpty()) return List.of();
+        return candidates.stream().max(Comparator.comparing(path -> path.get(path.size() - 1).amountOut)).orElse(List.of());
+    }
+}
+
+// -----------------------------------------------------------------------------
+// API KEY VALIDATOR (optional auth)
+// -----------------------------------------------------------------------------

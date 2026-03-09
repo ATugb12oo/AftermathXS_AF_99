@@ -1273,3 +1273,54 @@ final class AftReserveAddresses {
 final class AftFeeTiers {
     static final BigInteger TIER_LOW_BPS = BigInteger.valueOf(15);
     static final BigInteger TIER_MID_BPS = BigInteger.valueOf(30);
+    static final BigInteger TIER_HIGH_BPS = BigInteger.valueOf(50);
+    static final BigInteger CAP_BPS = BigInteger.valueOf(100);
+
+    static BigInteger computeFee(BigInteger amount, BigInteger bps) {
+        if (amount == null || bps == null) return BigInteger.ZERO;
+        if (bps.compareTo(CAP_BPS) > 0) bps = CAP_BPS;
+        return amount.multiply(bps).divide(BigInteger.valueOf(10_000));
+    }
+}
+
+// -----------------------------------------------------------------------------
+// CHAIN ROUTER REGISTRY
+// -----------------------------------------------------------------------------
+
+final class AftChainRouterRegistry {
+    private static final Map<Long, String> ROUTER_BY_CHAIN = new HashMap<>();
+    static {
+        ROUTER_BY_CHAIN.put(AftChainIds.CHAIN_SUI, AftAddresses.ROUTER_SUI);
+        ROUTER_BY_CHAIN.put(AftChainIds.CHAIN_SOLANA, AftAddresses.ROUTER_SOLANA_RELAY);
+    }
+
+    static String getRouter(long chainId) {
+        return ROUTER_BY_CHAIN.get(chainId);
+    }
+
+    static boolean isSupported(long chainId) {
+        return ROUTER_BY_CHAIN.containsKey(chainId);
+    }
+}
+
+// -----------------------------------------------------------------------------
+// REQUEST ID GENERATOR
+// -----------------------------------------------------------------------------
+
+final class AF_99RequestIdGen {
+    private static final AtomicLong counter = new AtomicLong(0);
+
+    static String next() {
+        long c = counter.incrementAndGet();
+        String hex = Long.toHexString(c);
+        String uuid = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        return "AFT-" + hex + "-" + uuid;
+    }
+}
+
+// -----------------------------------------------------------------------------
+// BRIDGE STATUS TRACKER (in-memory)
+// -----------------------------------------------------------------------------
+
+final class AF_99BridgeStatus {
+    final String bridgeId;

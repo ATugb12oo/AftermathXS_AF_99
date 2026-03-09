@@ -1681,3 +1681,54 @@ final class AftOrderBookSnapshot {
         this.asks = asks == null ? List.of() : Collections.unmodifiableList(new ArrayList<>(asks));
         this.sequence = sequence;
         this.timestampMs = timestampMs;
+    }
+}
+
+// -----------------------------------------------------------------------------
+// WITHDRAW REQUEST (bridge withdrawal representation)
+// -----------------------------------------------------------------------------
+
+final class AF_99WithdrawRequest {
+    final String requestId;
+    final long chainId;
+    final String token;
+    final BigInteger amount;
+    final String destinationAddress;
+    final long createdAtMs;
+
+    AF_99WithdrawRequest(String requestId, long chainId, String token, BigInteger amount, String destinationAddress, long createdAtMs) {
+        this.requestId = requestId;
+        this.chainId = chainId;
+        this.token = token;
+        this.amount = amount;
+        this.destinationAddress = destinationAddress;
+        this.createdAtMs = createdAtMs;
+    }
+}
+
+// -----------------------------------------------------------------------------
+// GAS ESTIMATOR (mock for Sui/Solana)
+// -----------------------------------------------------------------------------
+
+final class AftGasEstimate {
+    final BigInteger gasUnits;
+    final BigInteger gasPriceWei;
+    final BigInteger totalWei;
+
+    AftGasEstimate(BigInteger gasUnits, BigInteger gasPriceWei, BigInteger totalWei) {
+        this.gasUnits = gasUnits;
+        this.gasPriceWei = gasPriceWei;
+        this.totalWei = totalWei;
+    }
+}
+
+final class AF_99GasEstimator {
+    private static final BigInteger SUI_SWAP_GAS = new BigInteger("1500000");
+    private static final BigInteger SOL_SWAP_GAS = new BigInteger("200000");
+    private static final BigInteger BRIDGE_RELAY_GAS = new BigInteger("800000");
+
+    static AftGasEstimate forSwap(long chainId) {
+        BigInteger units = chainId == AftChainIds.CHAIN_SUI ? SUI_SWAP_GAS : SOL_SWAP_GAS;
+        BigInteger price = new BigInteger("1000000000");
+        return new AftGasEstimate(units, price, units.multiply(price));
+    }

@@ -2089,3 +2089,13 @@ final class AF_99VersionInfo {
 
     static Map<String, String> asMap() {
         Map<String, String> m = new HashMap<>();
+        m.put("build", BUILD);
+        m.put("apiVersion", API_VERSION);
+        m.put("minClientVersion", MIN_CLIENT_VERSION);
+        return m;
+    }
+}
+
+// -----------------------------------------------------------------------------
+// END OF AF_99 / AftermathXS COMBINED CONTRACT + APPLICATION
+// -----------------------------------------------------------------------------

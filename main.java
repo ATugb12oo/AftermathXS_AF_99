@@ -1120,3 +1120,54 @@ final class AF_99BatchProcessor {
 // -----------------------------------------------------------------------------
 // METRICS COLLECTOR
 // -----------------------------------------------------------------------------
+
+final class AF_99Metrics {
+    private final AtomicLong swapCount = new AtomicLong(0);
+    private final AtomicLong bridgeCount = new AtomicLong(0);
+    private final AtomicLong quoteCount = new AtomicLong(0);
+    private final AtomicLong errorCount = new AtomicLong(0);
+
+    void recordSwap() { swapCount.incrementAndGet(); }
+    void recordBridge() { bridgeCount.incrementAndGet(); }
+    void recordQuote() { quoteCount.incrementAndGet(); }
+    void recordError() { errorCount.incrementAndGet(); }
+
+    Map<String, Object> snapshot() {
+        Map<String, Object> m = new HashMap<>();
+        m.put("swaps", swapCount.get());
+        m.put("bridges", bridgeCount.get());
+        m.put("quotes", quoteCount.get());
+        m.put("errors", errorCount.get());
+        m.put("ts", System.currentTimeMillis());
+        return m;
+    }
+}
+
+// -----------------------------------------------------------------------------
+// ADDITIONAL POOL SEEDS (extended liquidity representation)
+// -----------------------------------------------------------------------------
+
+final class AftPoolSeeder {
+    static void seedSuiPools(AftermathXSAggregator agg) {
+        String[] tokens = {
+            "0x2a1B3c4D5e6F7a8B9c0D1e2F3a4B5c6D7e8F9a1",
+            "0x4b5C6d7E8f9A0b1C2d3E4f5A6b7C8d9E0f1A2b3",
+            "0x6c7D8e9F0a1B2c3D4e5F6a7B8c9D0e1F2a3B4c5",
+            "0x8d9E0f1A2b3C4d5E6f7A8b9C0d1E2f3A4b5C6d7",
+            "0x0e1F2a3B4c5D6e7F8a9B0c1D2e3F4a5B6c7D8e9",
+            "0xF1a2B3c4D5e6F7a8B9c0D1e2F3a4B5c6D7e8F9"
+        };
+        BigInteger[] reserves = {
+            new BigInteger("1500000000000000000000"),
+            new BigInteger("2800000000000000000000"),
+            new BigInteger("900000000000000000000"),
+            new BigInteger("3200000000000000000000"),
+            new BigInteger("1100000000000000000000"),
+            new BigInteger("700000000000000000000")
+        };
+        for (int i = 0; i < tokens.length - 1; i++) {
+            for (int j = i + 1; j < Math.min(i + 3, tokens.length); j++) {
+                String pid = "sui-ext-" + i + "-" + j;
+                agg.registerPool(new AftPoolInfo(pid, tokens[i], tokens[j], reserves[i], reserves[j], AftChainIds.CHAIN_SUI, "KrelvexSui"));
+            }
+        }

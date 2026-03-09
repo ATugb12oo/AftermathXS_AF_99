@@ -1936,3 +1936,54 @@ final class AF_99QuoteExpiryTask implements Runnable {
                 Thread.currentThread().interrupt();
                 break;
             }
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// CHAIN METADATA
+// -----------------------------------------------------------------------------
+
+final class AftChainMetadata {
+    final long chainId;
+    final String name;
+    final String rpcUrl;
+    final boolean supportsBridge;
+
+    AftChainMetadata(long chainId, String name, String rpcUrl, boolean supportsBridge) {
+        this.chainId = chainId;
+        this.name = name;
+        this.rpcUrl = rpcUrl == null ? "" : rpcUrl;
+        this.supportsBridge = supportsBridge;
+    }
+}
+
+final class AftChainMetadataRegistry {
+    private static final Map<Long, AftChainMetadata> REGISTRY = new HashMap<>();
+    static {
+        REGISTRY.put(AftChainIds.CHAIN_SUI, new AftChainMetadata(AftChainIds.CHAIN_SUI, AftChainIds.SUI_NETWORK_NAME, "https://fullnode.mainnet.sui.io", true));
+        REGISTRY.put(AftChainIds.CHAIN_SOLANA, new AftChainMetadata(AftChainIds.CHAIN_SOLANA, AftChainIds.SOLANA_NETWORK_NAME, "https://api.mainnet-beta.solana.com", true));
+    }
+
+    static AftChainMetadata get(long chainId) {
+        return REGISTRY.get(chainId);
+    }
+
+    static Collection<AftChainMetadata> all() {
+        return Collections.unmodifiableCollection(REGISTRY.values());
+    }
+}
+
+// -----------------------------------------------------------------------------
+// TOKEN WHITELIST ENTRY
+// -----------------------------------------------------------------------------
+
+final class AftWhitelistEntry {
+    final String address;
+    final String symbol;
+    final int decimals;
+    final long chainId;
+    final boolean bridgeable;
+
+    AftWhitelistEntry(String address, String symbol, int decimals, long chainId, boolean bridgeable) {
+        this.address = address;

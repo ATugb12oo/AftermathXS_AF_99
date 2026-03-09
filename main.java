@@ -1630,3 +1630,54 @@ final class AftDexLabels {
     static final String ZYNTH_SOL = "ZynthSol";
     static final Set<String> ALL = Set.of(KRELVEX_SUI, KRELVEX_SOL, ZYNTH_SUI, ZYNTH_SOL);
 }
+
+// -----------------------------------------------------------------------------
+// INTEGRATION TEST HELPER (no network)
+// -----------------------------------------------------------------------------
+
+final class AF_99IntegrationHelper {
+    static AftermathXSCore createCoreWithExtraPools() {
+        AftermathXSCore core = new AftermathXSCore();
+        AftPoolSeeder.seedSuiPools(core.getAggregator());
+        AftPoolSeeder.seedSolanaPools(core.getAggregator());
+        return core;
+    }
+
+    static AftQuoteResult getSampleQuote(AftermathXSCore core) {
+        String t1 = "0x6c7D8e9F0a1B2c3D4e5F6a7B8c9D0e1F2a3B4c5";
+        String t2 = "0x2a1B3c4D5e6F7a8B9c0D1e2F3a4B5c6D7e8F9a1";
+        return core.quoteSwap(AftChainIds.CHAIN_SUI, t1, t2, new BigInteger("1000000000000000000"), BigInteger.ZERO, 0);
+    }
+}
+
+// -----------------------------------------------------------------------------
+// ORDER BOOK SNAPSHOT (for future limit-order integration)
+// -----------------------------------------------------------------------------
+
+final class AftOrderBookLevel {
+    final BigInteger price;
+    final BigInteger size;
+    final boolean isBid;
+
+    AftOrderBookLevel(BigInteger price, BigInteger size, boolean isBid) {
+        this.price = price;
+        this.size = size;
+        this.isBid = isBid;
+    }
+}
+
+final class AftOrderBookSnapshot {
+    final String marketId;
+    final long chainId;
+    final List<AftOrderBookLevel> bids;
+    final List<AftOrderBookLevel> asks;
+    final long sequence;
+    final long timestampMs;
+
+    AftOrderBookSnapshot(String marketId, long chainId, List<AftOrderBookLevel> bids, List<AftOrderBookLevel> asks, long sequence, long timestampMs) {
+        this.marketId = marketId;
+        this.chainId = chainId;
+        this.bids = bids == null ? List.of() : Collections.unmodifiableList(new ArrayList<>(bids));
+        this.asks = asks == null ? List.of() : Collections.unmodifiableList(new ArrayList<>(asks));
+        this.sequence = sequence;
+        this.timestampMs = timestampMs;

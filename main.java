@@ -1426,3 +1426,54 @@ final class AF_99ExtendedHandler extends AF_99HttpHandler {
     private final AF_99RateLimiter rateLimiter;
     private final AF_99SimulationEngine simulationEngine;
     private final AF_99BatchProcessor batchProcessor;
+
+    AF_99ExtendedHandler(AftermathXSCore core, AF_99QuoteCache cache, AF_99Metrics metrics,
+                         AF_99RateLimiter rateLimiter, AF_99SimulationEngine simulationEngine,
+                         AF_99BatchProcessor batchProcessor) {
+        super(core, cache);
+        this.metrics = metrics;
+        this.rateLimiter = rateLimiter;
+        this.simulationEngine = simulationEngine;
+        this.batchProcessor = batchProcessor;
+    }
+
+    String handleExtended(String path, Map<String, String> queryParams, String body) {
+        String clientKey = queryParams.getOrDefault("clientId", "default");
+        if (!rateLimiter.allow(clientKey)) {
+            return AF_99Json.toJson(Map.of("success", false, "errorCode", "AFT_FEE_CAP_EXCEEDED", "message", "Rate limited"));
+        }
+        if ("/metrics".equals(path)) {
+            return AF_99Json.toJson(Map.of("success", true, "data", metrics.snapshot()));
+        }
+        if ("/simulate".equals(path)) {
+            return handleSimulate(queryParams);
+        }
+        if ("/batch/quote".equals(path)) {
+            return handleBatchQuote(body);
+        }
+        return handle(path, queryParams, body);
+    }
+
+    private String handleSimulate(Map<String, String> params) {
+        try {
+            String chainIdStr = params.get("chainId");
+            String tokenIn = params.get("tokenIn");
+            String tokenOut = params.get("tokenOut");
+            String amountStr = params.get("amountIn");
+            if (chainIdStr == null || tokenIn == null || tokenOut == null || amountStr == null) {
+                return AF_99Json.toJson(Map.of("success", false, "message", "Missing params"));
+            }
+            long chainId = Long.parseLong(chainIdStr);
+            BigInteger amountIn = new BigInteger(amountStr);
+            AF_99SimulationRequest req = new AF_99SimulationRequest(chainId, tokenIn, tokenOut, amountIn, 3);
+            AF_99SimulationResult res = simulationEngine.run(req);
+            Map<String, Object> data = new HashMap<>();
+            data.put("totalOut", res.totalOut.toString());
+            data.put("totalFee", res.totalFee.toString());
+            data.put("durationMs", res.durationMs);
+            data.put("stepCount", res.steps.size());
+            return AF_99Json.toJson(Map.of("success", true, "data", data));
+        } catch (Exception e) {
+            metrics.recordError();
+            return AF_99Json.toJson(Map.of("success", false, "message", e.getMessage()));
+        }

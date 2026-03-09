@@ -1885,3 +1885,54 @@ final class AF_99MultiHopBuilder {
 // -----------------------------------------------------------------------------
 // API KEY VALIDATOR (optional auth)
 // -----------------------------------------------------------------------------
+
+final class AF_99ApiKeyStore {
+    private final Set<String> validKeys = ConcurrentHashMap.newKeySet();
+
+    void add(String key) {
+        if (key != null && !key.isBlank()) validKeys.add(key.trim());
+    }
+
+    boolean isValid(String key) {
+        return key != null && validKeys.contains(key.trim());
+    }
+}
+
+// -----------------------------------------------------------------------------
+// CORS HEADERS (for web interface)
+// -----------------------------------------------------------------------------
+
+final class AF_99CorsFilter {
+    static final String ALLOW_ORIGIN = "*";
+    static final String ALLOW_METHODS = "GET, POST, OPTIONS";
+    static final String ALLOW_HEADERS = "Content-Type, Authorization";
+
+    static void addCorsHeaders(OutputStream out) throws IOException {
+        String h = "HTTP/1.1 204 No Content\r\nAccess-Control-Allow-Origin: " + ALLOW_ORIGIN + "\r\nAccess-Control-Allow-Methods: " + ALLOW_METHODS + "\r\nAccess-Control-Allow-Headers: " + ALLOW_HEADERS + "\r\nConnection: close\r\n\r\n";
+        out.write(h.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        out.flush();
+    }
+}
+
+// -----------------------------------------------------------------------------
+// QUOTE EXPIRY CLEANER (background task)
+// -----------------------------------------------------------------------------
+
+final class AF_99QuoteExpiryTask implements Runnable {
+    private final AF_99QuoteCache cache;
+    private final long intervalMs;
+
+    AF_99QuoteExpiryTask(AF_99QuoteCache cache, long intervalMs) {
+        this.cache = cache;
+        this.intervalMs = intervalMs <= 0 ? 60_000L : intervalMs;
+    }
+
+    @Override
+    public void run() {
+        while (!Thread.currentThread().isInterrupted()) {
+            try {
+                Thread.sleep(intervalMs);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }

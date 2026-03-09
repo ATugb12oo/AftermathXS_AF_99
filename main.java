@@ -1477,3 +1477,54 @@ final class AF_99ExtendedHandler extends AF_99HttpHandler {
             metrics.recordError();
             return AF_99Json.toJson(Map.of("success", false, "message", e.getMessage()));
         }
+    }
+
+    private String handleBatchQuote(String body) {
+        try {
+            if (body == null || body.isBlank()) {
+                return AF_99Json.toJson(Map.of("success", false, "message", "Empty body"));
+            }
+            List<AF_99BatchQuoteItem> items = parseBatchItems(body);
+            if (items.isEmpty()) return AF_99Json.toJson(Map.of("success", false, "message", "No items"));
+            List<AF_99BatchQuoteResult> results = batchProcessor.quoteBatch(items);
+            List<Map<String, Object>> list = new ArrayList<>();
+            for (AF_99BatchQuoteResult r : results) {
+                Map<String, Object> entry = new HashMap<>();
+                entry.put("id", r.id);
+                if (r.quote != null) {
+                    entry.put("quoteId", r.quote.quoteId);
+                    entry.put("amountOut", r.quote.amountOut.toString());
+                }
+                if (r.error != null) entry.put("error", r.error);
+                list.add(entry);
+            }
+            return AF_99Json.toJson(Map.of("success", true, "data", list));
+        } catch (Exception e) {
+            metrics.recordError();
+            return AF_99Json.toJson(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    private List<AF_99BatchQuoteItem> parseBatchItems(String body) {
+        List<AF_99BatchQuoteItem> items = new ArrayList<>();
+        String[] lines = body.split("\n");
+        for (String line : lines) {
+            line = line.trim();
+            if (line.isEmpty()) continue;
+            String[] parts = line.split(",");
+            if (parts.length < 5) continue;
+            try {
+                String id = parts[0];
+                long chainId = Long.parseLong(parts[1]);
+                String tokenIn = parts[2];
+                String tokenOut = parts[3];
+                BigInteger amountIn = new BigInteger(parts[4]);
+                items.add(new AF_99BatchQuoteItem(id, chainId, tokenIn, tokenOut, amountIn));
+            } catch (Exception ignored) { }
+        }
+        return items;
+    }
+}
+
+// -----------------------------------------------------------------------------
+// CLI RUNNER (for testing from command line)

@@ -1528,3 +1528,54 @@ final class AF_99ExtendedHandler extends AF_99HttpHandler {
 
 // -----------------------------------------------------------------------------
 // CLI RUNNER (for testing from command line)
+// -----------------------------------------------------------------------------
+
+final class AF_99CLI {
+    static void runQuote(AftermathXSCore core, long chainId, String tokenIn, String tokenOut, String amountStr) {
+        BigInteger amount = new BigInteger(amountStr);
+        AftQuoteResult q = core.quoteSwap(chainId, tokenIn, tokenOut, amount, BigInteger.ZERO, 0);
+        System.out.println("QuoteId: " + q.quoteId + " AmountOut: " + q.amountOut + " Fee: " + q.feeAmount);
+    }
+
+    static void runBridgeQuote(AftermathXSCore core, long from, long to, String token, String amountStr) {
+        BigInteger amount = new BigInteger(amountStr);
+        ZynthBridgeQuote q = core.getBridgeQuote(from, to, token, amount);
+        System.out.println("BridgeQuoteId: " + q.quoteId + " Estimated: " + q.estimatedReceived + " Fee: " + q.relayFee);
+    }
+}
+
+// -----------------------------------------------------------------------------
+// ADDITIONAL EVENT TYPES
+// -----------------------------------------------------------------------------
+
+final class PoolRegisteredEvent {
+    final String poolId;
+    final long chainId;
+    final String dexLabel;
+    final Instant timestamp;
+
+    PoolRegisteredEvent(String poolId, long chainId, String dexLabel, Instant timestamp) {
+        this.poolId = poolId;
+        this.chainId = chainId;
+        this.dexLabel = dexLabel;
+        this.timestamp = timestamp;
+    }
+}
+
+final class FeeCollectedEvent {
+    final String collector;
+    final BigInteger amount;
+    final String token;
+    final Instant timestamp;
+
+    FeeCollectedEvent(String collector, BigInteger amount, String token, Instant timestamp) {
+        this.collector = collector;
+        this.amount = amount;
+        this.token = token;
+        this.timestamp = timestamp;
+    }
+}
+
+// -----------------------------------------------------------------------------
+// SLIPPAGE GUARD (immutable max slippage bps)
+// -----------------------------------------------------------------------------

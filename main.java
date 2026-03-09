@@ -1324,3 +1324,54 @@ final class AF_99RequestIdGen {
 
 final class AF_99BridgeStatus {
     final String bridgeId;
+    final String state;
+    final long createdAt;
+    final long updatedAt;
+
+    AF_99BridgeStatus(String bridgeId, String state, long createdAt, long updatedAt) {
+        this.bridgeId = bridgeId;
+        this.state = state;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+    }
+
+    static final String STATE_PENDING = "PENDING";
+    static final String STATE_RELAYED = "RELAYED";
+    static final String STATE_COMPLETED = "COMPLETED";
+    static final String STATE_FAILED = "FAILED";
+}
+
+final class AF_99BridgeTracker {
+    private final Map<String, AF_99BridgeStatus> byId = new ConcurrentHashMap<>();
+
+    void record(String bridgeId, String state) {
+        long now = System.currentTimeMillis();
+        byId.compute(bridgeId, (k, v) -> new AF_99BridgeStatus(k, state, v == null ? now : v.createdAt, now));
+    }
+
+    AF_99BridgeStatus get(String bridgeId) {
+        return byId.get(bridgeId);
+    }
+}
+
+// -----------------------------------------------------------------------------
+// TOKEN REGISTRY (symbol -> address per chain)
+// -----------------------------------------------------------------------------
+
+final class AF_99TokenRegistry {
+    private final Map<Long, Map<String, String>> chainToSymbolToAddress = new ConcurrentHashMap<>();
+
+    void register(long chainId, String symbol, String address) {
+        if (!AftAddressValidator.isValid(address)) return;
+        chainToSymbolToAddress.computeIfAbsent(chainId, k -> new ConcurrentHashMap<>()).put(symbol, address);
+    }
+
+    String getAddress(long chainId, String symbol) {
+        Map<String, String> m = chainToSymbolToAddress.get(chainId);
+        return m == null ? null : m.get(symbol);
+    }
+
+    Set<String> getSymbols(long chainId) {
+        Map<String, String> m = chainToSymbolToAddress.get(chainId);
+        return m == null ? Set.of() : Set.copyOf(m.keySet());
+    }

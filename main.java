@@ -1579,3 +1579,54 @@ final class FeeCollectedEvent {
 // -----------------------------------------------------------------------------
 // SLIPPAGE GUARD (immutable max slippage bps)
 // -----------------------------------------------------------------------------
+
+final class AftSlippageGuard {
+    static final BigInteger MAX_SLIPPAGE_BPS = BigInteger.valueOf(500); // 5%
+
+    static void requireWithinSlippage(BigInteger expectedOut, BigInteger actualOut, BigInteger maxSlippageBps) {
+        if (expectedOut == null || actualOut == null || expectedOut.signum() == 0) return;
+        BigInteger bps = maxSlippageBps == null || maxSlippageBps.compareTo(MAX_SLIPPAGE_BPS) > 0 ? MAX_SLIPPAGE_BPS : maxSlippageBps;
+        BigInteger minAllowed = expectedOut.multiply(BigInteger.valueOf(10_000).subtract(bps)).divide(BigInteger.valueOf(10_000));
+        if (actualOut.compareTo(minAllowed) < 0) {
+            throw new KrelvexRouteException(AftErrorCodes.AFT_SLIPPAGE_EXCEEDED, "Actual " + actualOut + " below " + minAllowed);
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// DEADLINE CHECKER
+// -----------------------------------------------------------------------------
+
+final class AftDeadlineChecker {
+    static void requireNotExpired(long deadlineMs) {
+        if (deadlineMs > 0 && System.currentTimeMillis() > deadlineMs) {
+            throw new KrelvexRouteException(AftErrorCodes.AFT_DEADLINE_PASSED, "Deadline " + deadlineMs + " passed");
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// PLATFORM CONSTANTS (immutable)
+// -----------------------------------------------------------------------------
+
+final class AftPlatformConstants {
+    static final String PLATFORM_NAME = "AftermathXS";
+    static final String APP_LABEL = "AF_99";
+    static final int DEFAULT_DECIMALS = 18;
+    static final BigInteger WEI_PER_UNIT = BigInteger.TEN.pow(18);
+    static final int MAX_ROUTE_STEPS = 5;
+    static final long DEFAULT_QUOTE_TTL_MS = 45_000L;
+    static final long DEFAULT_BRIDGE_QUOTE_TTL_MS = 90_000L;
+}
+
+// -----------------------------------------------------------------------------
+// DEX LABEL ENUM (supported DEXes)
+// -----------------------------------------------------------------------------
+
+final class AftDexLabels {
+    static final String KRELVEX_SUI = "KrelvexSui";
+    static final String KRELVEX_SOL = "KrelvexSol";
+    static final String ZYNTH_SUI = "ZynthSui";
+    static final String ZYNTH_SOL = "ZynthSol";
+    static final Set<String> ALL = Set.of(KRELVEX_SUI, KRELVEX_SOL, ZYNTH_SUI, ZYNTH_SOL);
+}

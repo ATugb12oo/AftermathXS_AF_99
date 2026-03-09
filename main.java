@@ -1171,3 +1171,54 @@ final class AftPoolSeeder {
                 agg.registerPool(new AftPoolInfo(pid, tokens[i], tokens[j], reserves[i], reserves[j], AftChainIds.CHAIN_SUI, "KrelvexSui"));
             }
         }
+    }
+
+    static void seedSolanaPools(AftermathXSAggregator agg) {
+        String[] tokens = {
+            "0x8d9E0f1A2b3C4d5E6f7A8b9C0d1E2f3A4b5C6d7",
+            "0x0e1F2a3B4c5D6e7F8a9B0c1D2e3F4a5B6c7D8e9",
+            "0xF1a2B3c4D5e6F7a8B9c0D1e2F3a4B5c6D7e8F9",
+            "0x1b2C3d4E5f6A7b8C9d0E1f2A3b4C5d6E7f8A9b0",
+            "0x3c4D5e6F7a8B9c0D1e2F3a4B5c6D7e8F9a0B1c2"
+        };
+        BigInteger[] reserves = {
+            new BigInteger("2200000000000000000000"),
+            new BigInteger("1800000000000000000000"),
+            new BigInteger("600000000000000000000"),
+            new BigInteger("4100000000000000000000"),
+            new BigInteger("950000000000000000000")
+        };
+        for (int i = 0; i < tokens.length - 1; i++) {
+            String pid = "sol-ext-" + i + "-" + (i + 1);
+            agg.registerPool(new AftPoolInfo(pid, tokens[i], tokens[i + 1], reserves[i], reserves[i + 1], AftChainIds.CHAIN_SOLANA, "ZynthSol"));
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// ROUTE VALIDATOR (slippage and deadline checks)
+// -----------------------------------------------------------------------------
+
+final class AF_99RouteValidator {
+    static void validateQuote(AftQuoteResult quote, BigInteger minOut, long deadlineMs) {
+        if (quote == null) throw new KrelvexRouteException(AftErrorCodes.AFT_INVALID_ROUTE, "Null quote");
+        if (System.currentTimeMillis() > quote.validUntilMs)
+            throw new KrelvexRouteException(AftErrorCodes.AFT_ROUTE_STALE, "Quote expired");
+        if (minOut != null && minOut.signum() > 0 && quote.amountOut.compareTo(minOut) < 0)
+            throw new KrelvexRouteException(AftErrorCodes.AFT_SLIPPAGE_EXCEEDED, "Below minOut");
+        if (deadlineMs > 0 && System.currentTimeMillis() > deadlineMs)
+            throw new KrelvexRouteException(AftErrorCodes.AFT_DEADLINE_PASSED, "Deadline passed");
+    }
+}
+
+// -----------------------------------------------------------------------------
+// CONFIG LOADER (file-based optional config)
+// -----------------------------------------------------------------------------
+
+final class AF_99ConfigLoader {
+    static Map<String, String> loadFromEnv() {
+        Map<String, String> m = new HashMap<>();
+        String port = System.getenv("AF_99_PORT");
+        if (port != null) m.put("port", port);
+        String host = System.getenv("AF_99_HOST");
+        if (host != null) m.put("host", host);

@@ -1783,3 +1783,54 @@ final class AF_99ReferralTracker {
 final class AF_99MaintenanceWindow {
     final long startMs;
     final long endMs;
+    final String reason;
+
+    AF_99MaintenanceWindow(long startMs, long endMs, String reason) {
+        this.startMs = startMs;
+        this.endMs = endMs;
+        this.reason = reason == null ? "" : reason;
+    }
+
+    boolean isActive(long nowMs) {
+        return nowMs >= startMs && nowMs <= endMs;
+    }
+}
+
+// -----------------------------------------------------------------------------
+// PRICE TICKER (last price per pair)
+// -----------------------------------------------------------------------------
+
+final class AF_99PriceTicker {
+    final String baseToken;
+    final String quoteToken;
+    final long chainId;
+    final BigInteger lastPrice;
+    final BigInteger volume24h;
+    final long updatedMs;
+
+    AF_99PriceTicker(String baseToken, String quoteToken, long chainId, BigInteger lastPrice, BigInteger volume24h, long updatedMs) {
+        this.baseToken = baseToken;
+        this.quoteToken = quoteToken;
+        this.chainId = chainId;
+        this.lastPrice = lastPrice;
+        this.volume24h = volume24h == null ? BigInteger.ZERO : volume24h;
+        this.updatedMs = updatedMs;
+    }
+}
+
+// -----------------------------------------------------------------------------
+// ROUTE COMPARATOR (best route by output)
+// -----------------------------------------------------------------------------
+
+final class AF_99RouteComparator implements Comparator<AftQuoteResult> {
+    @Override
+    public int compare(AftQuoteResult a, AftQuoteResult b) {
+        if (a == null && b == null) return 0;
+        if (a == null) return 1;
+        if (b == null) return -1;
+        return b.amountOut.compareTo(a.amountOut);
+    }
+}
+
+// -----------------------------------------------------------------------------
+// MULTI-HOP ROUTE BUILDER (3+ hops)

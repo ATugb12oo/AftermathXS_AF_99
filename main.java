@@ -2038,3 +2038,54 @@ final class AF_99SwapAndBridgeRequest {
     }
 }
 
+// -----------------------------------------------------------------------------
+// AUDIT LOG ENTRY
+// -----------------------------------------------------------------------------
+
+final class AF_99AuditEntry {
+    final String action;
+    final String requestId;
+    final String clientId;
+    final long timestampMs;
+    final boolean success;
+
+    AF_99AuditEntry(String action, String requestId, String clientId, long timestampMs, boolean success) {
+        this.action = action;
+        this.requestId = requestId;
+        this.clientId = clientId;
+        this.timestampMs = timestampMs;
+        this.success = success;
+    }
+}
+
+// -----------------------------------------------------------------------------
+// SIMPLE AUDIT LOG (in-memory ring)
+// -----------------------------------------------------------------------------
+
+final class AF_99AuditLog {
+    private static final int MAX_ENTRIES = 1000;
+    private final Queue<AF_99AuditEntry> entries = new ConcurrentLinkedQueue<>();
+
+    void append(AF_99AuditEntry entry) {
+        entries.offer(entry);
+        while (entries.size() > MAX_ENTRIES) entries.poll();
+    }
+
+    List<AF_99AuditEntry> getRecent(int n) {
+        List<AF_99AuditEntry> all = new ArrayList<>(entries);
+        Collections.reverse(all);
+        return all.stream().limit(n).collect(Collectors.toList());
+    }
+}
+
+// -----------------------------------------------------------------------------
+// VERSION INFO
+// -----------------------------------------------------------------------------
+
+final class AF_99VersionInfo {
+    static final String BUILD = "20250308-krelvex";
+    static final String API_VERSION = "v1";
+    static final String MIN_CLIENT_VERSION = "1.0.0";
+
+    static Map<String, String> asMap() {
+        Map<String, String> m = new HashMap<>();
